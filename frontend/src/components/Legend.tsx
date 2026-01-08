@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useUIStore } from "@/store/ui-store";
 import { MTA_COLORS } from "@/lib/mta-colors";
 
 // Group lines by color/trunk
@@ -17,49 +22,34 @@ const LINE_GROUPS = [
   { lines: ["SIR"], color: MTA_COLORS["SIR"], label: "Staten Island" },
 ];
 
-export function Legend() {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function LinesDialog() {
+  const { isLinesOpen, setLinesOpen } = useUIStore();
 
   return (
-    <div className="bg-black/70 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden">
-      {/* Header - always visible */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs text-white/80 hover:bg-white/5 transition-colors"
-      >
-        <span className="font-medium">Lines</span>
-        {isExpanded ? (
-          <ChevronDown className="w-3 h-3" />
-        ) : (
-          <ChevronUp className="w-3 h-3" />
-        )}
-      </button>
-
-      {/* Expanded content */}
-      {isExpanded && (
-        <div className="px-3 pb-3 space-y-1.5">
+    <Dialog open={isLinesOpen} onOpenChange={setLinesOpen}>
+      <DialogContent className="bg-black/90 border-zinc-800 max-w-xs">
+        <DialogHeader>
+          <DialogTitle>Subway Lines</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
           {LINE_GROUPS.map((group) => (
-            <div key={group.label} className="flex items-center gap-2">
-              {/* Line circles */}
-              <div className="flex gap-0.5">
+            <div key={group.label} className="flex items-center gap-3">
+              <div className="flex gap-1">
                 {group.lines.map((line) => (
                   <div
                     key={line}
-                    className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
                     style={{ backgroundColor: group.color }}
                   >
                     {line.length <= 2 ? line : ""}
                   </div>
                 ))}
               </div>
-              {/* Label */}
-              <span className="text-[10px] text-white/50 truncate">
-                {group.label}
-              </span>
+              <span className="text-xs text-white/60">{group.label}</span>
             </div>
           ))}
         </div>
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -65,32 +65,8 @@ function useArrowIcon(): boolean {
   return isLoaded;
 }
 
-// Calculate position offset behind a train based on bearing
-function getTrailPosition(
-  lat: number,
-  lon: number,
-  bearing: number,
-  distance: number
-): [number, number] {
-  // Convert bearing to radians and calculate offset (moving backward)
-  const bearingRad = ((bearing + 180) * Math.PI) / 180;
-  const latRad = (lat * Math.PI) / 180;
 
-  // Approximate offset in degrees (distance is in degrees, roughly)
-  const dLat = distance * Math.cos(bearingRad);
-  const dLon = distance * Math.sin(bearingRad) / Math.cos(latRad);
-
-  return [lon + dLon, lat + dLat];
-}
-
-// Trail configuration
-const TRAIL_SEGMENTS = [
-  { distance: 0.00015, opacity: 0.5 },
-  { distance: 0.00030, opacity: 0.25 },
-  { distance: 0.00045, opacity: 0.1 },
-];
-
-// Convert trains to GeoJSON FeatureCollection (includes trail points)
+// Convert trains to GeoJSON FeatureCollection
 function trainsToGeoJSON(
   trains: InterpolatedTrain[],
   highlightedVehicleIds: Set<string>
@@ -103,40 +79,8 @@ function trainsToGeoJSON(
     const isHighlighted = highlightedVehicleIds.has(train.id);
 
     // Scale and opacity for highlighted vs normal trains
-    const trainScale = isHighlighted ? train.scale * 1.2 : train.scale;
+    const trainScale = (isHighlighted ? train.scale * 1.2 : train.scale) * 1.5;
     const trainOpacity = isHighlighted ? 1.0 : 0.85;
-    const trailOpacityMultiplier = isHighlighted ? 1.3 : 1.0;
-
-    // Add trail segments (rendered first, so they appear behind)
-    if (train.hasBearing) {
-      for (const segment of TRAIL_SEGMENTS) {
-        const [trailLon, trailLat] = getTrailPosition(
-          train.latitude,
-          train.longitude,
-          bearing,
-          segment.distance
-        );
-        features.push({
-          type: "Feature",
-          id: `${train.id}-trail-${segment.distance}`,
-          geometry: {
-            type: "Point",
-            coordinates: [trailLon, trailLat],
-          },
-          properties: {
-            id: train.id,
-            color,
-            bearing,
-            opacity: Math.min(1, segment.opacity * trailOpacityMultiplier),
-            isTrail: true,
-            scale: trainScale,
-            isHighlighted,
-          },
-        });
-      }
-    }
-
-    // Add main train marker
     features.push({
       type: "Feature",
       id: train.id,
@@ -165,33 +109,6 @@ function trainsToGeoJSON(
     features,
   };
 }
-
-// Trail layer (fading triangles behind moving trains)
-const trailLayer: SymbolLayerSpecification = {
-  id: "trains-trail",
-  type: "symbol",
-  source: "trains",
-  filter: ["==", ["get", "isTrail"], true],
-  layout: {
-    "icon-image": "train-arrow",
-    "icon-size": [
-      "interpolate",
-      ["linear"],
-      ["zoom"],
-      10, ["*", 0.35, ["get", "scale"]],
-      14, ["*", 0.5, ["get", "scale"]],
-      18, ["*", 0.7, ["get", "scale"]],
-    ],
-    "icon-rotate": ["get", "bearing"],
-    "icon-rotation-alignment": "map",
-    "icon-allow-overlap": true,
-    "icon-ignore-placement": true,
-  },
-  paint: {
-    "icon-color": ["get", "color"],
-    "icon-opacity": ["get", "opacity"],
-  },
-};
 
 // Arrow layer (for trains with valid bearing)
 const arrowLayer: SymbolLayerSpecification = {
@@ -271,7 +188,6 @@ export function TrainLayer() {
   // Always render all layers - fallback circle layer will only show for trains without bearing
   return (
     <Source id="trains" type="geojson" data={geojson}>
-      <Layer {...trailLayer} />
       <Layer {...arrowLayer} />
       <Layer {...fallbackCircleLayer} />
     </Source>

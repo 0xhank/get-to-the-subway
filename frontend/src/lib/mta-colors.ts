@@ -25,10 +25,10 @@ export const MTA_COLORS: Record<string, string> = {
   "1": "#e88a87",
   "2": "#e88a87",
   "3": "#e88a87",
-  // Green line (4/5/6) - soft sage
-  "4": "#6bb87f",
-  "5": "#6bb87f",
-  "6": "#6bb87f",
+  // Green line (4/5/6) - darker forest
+  "4": "#4a9960",
+  "5": "#4a9960",
+  "6": "#4a9960",
   // Purple line (7) - soft lavender
   "7": "#c78ac5",
   // Shuttles - soft gray

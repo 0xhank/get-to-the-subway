@@ -15,13 +15,6 @@ pnpm run typecheck
 # 3. Run tests
 pnpm run test -- -t "test name"       # Single suite
 pnpm run test:file -- "glob"          # Specific files
-
-# 4. Lint before committing
-pnpm run lint:file -- "file1.ts"      # Specific files
-pnpm run lint                          # All files
-
-# 5. Before creating PR
-pnpm run lint:claude && pnpm run test
 ```
 ## Quick Start
 

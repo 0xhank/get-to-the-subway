@@ -30,6 +30,7 @@
   "devDependencies": {
     "@live-subway/shared": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
+    "@types/rbush": "^4.0.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",

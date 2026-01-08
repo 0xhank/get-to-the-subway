@@ -38,21 +38,6 @@ function interpolateBearing(
   return (fromBearing + diff * easedProgress + 360) % 360;
 }
 
-/**
- * Calculate pulse scale for stopped trains.
- * Returns scale factor between 1.0 and 1.15.
- */
-function calculatePulseScale(now: number, stoppedSince: number): number {
-  const elapsed = now - stoppedSince;
-  const period = 1500; // 1.5 seconds
-  const phase = (elapsed % period) / period;
-
-  // Sinusoidal: smooth 0 -> 1 -> 0 over the period
-  const pulse = (Math.sin(phase * Math.PI * 2 - Math.PI / 2) + 1) / 2;
-
-  return 1.0 + pulse * 0.15;
-}
-
 export interface InterpolatedTrain extends Omit<Train, 'bearing'> {
   bearing: number | null;
   scale: number;
@@ -75,16 +60,13 @@ interface TrainAnimationState {
   fromBearing?: number;
   bearingTransitionStart: number;
   lastRenderedBearing?: number;
-  // Pulse animation (for stopped trains)
-  stoppedSince?: number;
 }
 
 /**
  * Calculates real-time train positions with smooth transitions.
  * - Uses timing data for continuous movement between stations
  * - Smoothly animates when trains jump to new segments
- * - Interpolates bearing changes over 500ms
- * - Pulses stopped trains with gentle scale animation
+ * - Interpolates bearing changes over 300ms
  */
 export function useInterpolatedTrains(): InterpolatedTrain[] {
   const trains = useTrainStore((state) => state.trains);
@@ -204,23 +186,12 @@ export function useInterpolatedTrains(): InterpolatedTrain[] {
         state.lastRenderedBearing = finalBearing;
       }
 
-      // Handle pulse scale for stopped trains
-      let scale = 1.0;
-      if (train.status === "AT_STOP") {
-        if (!state.stoppedSince) {
-          state.stoppedSince = now;
-        }
-        scale = calculatePulseScale(now, state.stoppedSince);
-      } else {
-        state.stoppedSince = undefined;
-      }
-
       return {
         ...train,
         latitude: finalLat,
         longitude: finalLon,
         bearing: finalBearing,
-        scale,
+        scale: 1.0,
         hasBearing: finalBearing !== null,
       };
     });

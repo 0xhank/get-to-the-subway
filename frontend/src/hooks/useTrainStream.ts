@@ -36,7 +36,6 @@ export function useTrainStream(): void {
             trains: Train[];
             feedStatuses: FeedStatus[];
           };
-          console.log(`Loaded ${data.trains.length} cached trains`);
           setTrains(data.trains, data.feedStatuses);
         }
       } catch (error) {
@@ -55,7 +54,6 @@ export function useTrainStream(): void {
       }
 
       setConnectionState(false, true);
-      console.log("Connecting to SSE stream...");
 
       const eventSource = new EventSource(SSE_ENDPOINT);
       eventSourceRef.current = eventSource;

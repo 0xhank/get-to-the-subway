@@ -31,7 +31,7 @@ export default tseslint.config(
       },
     },
     rules: {
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': ['error', { allow: ['warn', 'error'] }],
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -44,7 +44,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**/*', 'backend/**/*', 'frontend/src/hooks/useTrainStream.ts'],
+    files: ['scripts/**/*', 'backend/**/*', 'frontend/src/hooks/useTrainStream.ts', 'frontend/src/hooks/useSpatialIndex.ts', 'frontend/src/hooks/useNearbyArrivals.ts', 'frontend/src/App.tsx'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',

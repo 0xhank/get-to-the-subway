@@ -5,6 +5,7 @@ import { createStreamRouter, broadcastTrains, startHeartbeat } from "./routes/st
 import { createTrainsRouter } from "./routes/trains.js";
 import { createStatusRouter } from "./routes/status.js";
 import { createStopsRouter } from "./routes/stops.js";
+import { createRoutesRouter } from "./routes/routes.js";
 import { startPolling, setOnDataChanged } from "./transiter/poller.js";
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(createStreamRouter());
 app.use(createTrainsRouter());
 app.use(createStatusRouter());
 app.use(createStopsRouter());
+app.use(createRoutesRouter());
 
 // Wire up data change callback to broadcast SSE
 setOnDataChanged(broadcastTrains);

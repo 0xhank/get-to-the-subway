@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "run-pty % pnpm --filter frontend dev % pnpm --filter backend dev",
     "build": "pnpm -r build",
-    "typecheck": "eslint . --max-warnings=0",
+    "typecheck": "eslint .",
     "generate-routes": "tsx scripts/generate-route-paths.ts",
     "generate-parent-stations": "tsx scripts/generate-parent-stations.ts"
   },

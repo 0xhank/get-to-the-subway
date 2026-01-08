@@ -104,9 +104,7 @@ async function poll(): Promise<void> {
     const now = Date.now();
 
     // Fetch trip data for all vehicles (for position calculation)
-    console.log("Fetching trip data for position calculation...");
     const tripDataMap = await fetchTripsForVehicles(vehicles);
-    console.log(`Fetched trip data for ${tripDataMap.size} vehicles`);
 
     // Convert to trains, filter stale
     const trains: Train[] = [];

@@ -37,12 +37,13 @@ const stopCircleLayer: CircleLayerSpecification = {
   id: "stops-circle",
   type: "circle",
   source: "stops",
-  minzoom: 13,
   paint: {
     "circle-radius": [
       "interpolate",
       ["linear"],
       ["zoom"],
+      0,
+      1,
       13,
       3,
       16,
@@ -68,8 +69,8 @@ export function StopLayer() {
     const loadStations = async () => {
       try {
         const response = await fetch("/data/parent-stations.json");
-        const stations: ParentStation[] = await response.json();
-        setGeojson(stationsToGeoJSON(stations));
+        const stationData: ParentStation[] = await response.json();
+        setGeojson(stationsToGeoJSON(stationData));
       } catch (error) {
         console.error("Failed to load parent stations:", error);
       }
