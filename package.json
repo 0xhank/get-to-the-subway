@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "run-pty % pnpm --filter frontend dev % pnpm --filter backend dev",
     "build": "pnpm -r build",
+    "typecheck": "eslint . --max-warnings=0",
     "generate-routes": "tsx scripts/generate-route-paths.ts",
     "generate-parent-stations": "tsx scripts/generate-parent-stations.ts"
   },
@@ -20,12 +21,19 @@
   "license": "ISC",
   "packageManager": "pnpm@10.17.0",
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@turf/turf": "^7.3.1",
     "@types/node": "^25.0.3",
     "@types/papaparse": "^5.5.2",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
     "adm-zip": "^0.5.16",
     "colord": "^2.9.3",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "papaparse": "^5.5.3",
-    "run-pty": "^5.0.0"
+    "run-pty": "^5.0.0",
+    "typescript-eslint": "^8.52.0"
   }
 }

@@ -44,8 +44,8 @@ export class CircuitBreaker {
   }
 
   get currentState(): CircuitState {
-    // Trigger state check
-    this.isOpen;
+    // Trigger state check by accessing the isOpen getter (has side effects for HALF_OPEN transition)
+    void this.isOpen;
     return this.state;
   }
 

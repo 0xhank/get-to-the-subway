@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Map from "react-map-gl/maplibre";
+import type { MapLayerMouseEvent, MapGeoJSONFeature } from "react-map-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { UIOverlay } from "@/components/UIOverlay";
@@ -35,10 +36,10 @@ export default function App() {
   const selectStop = useStopStore((state) => state.selectStop);
   const clearSelection = useStopStore((state) => state.clearSelection);
 
-  const handleMapClick = (e: any) => {
+  const handleMapClick = (e: MapLayerMouseEvent) => {
     // Check if a stop marker was clicked
-    const features = e.features || [];
-    const stopFeature = features.find((f: any) => f.layer.id === "stops-circle");
+    const features = (e.features as MapGeoJSONFeature[]) || [];
+    const stopFeature = features.find((f) => f.layer.id === "stops-circle");
 
     if (stopFeature) {
       // Stop marker clicked

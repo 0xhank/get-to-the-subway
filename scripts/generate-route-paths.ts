@@ -10,9 +10,7 @@ import { fileURLToPath } from "node:url";
 import https from "node:https";
 import http from "node:http";
 import AdmZip from "adm-zip";
-import Papa from "papaparse";
-import { simplify } from "@turf/turf";
-import { lineString, featureCollection } from "@turf/turf";
+import { simplify, lineString } from "@turf/turf";
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
