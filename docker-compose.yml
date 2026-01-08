@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgis/postgis:14-3.4
+    environment:
+      POSTGRES_USER: transiter
+      POSTGRES_PASSWORD: transiter
+      POSTGRES_DB: transiter
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transiter"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  transiter:
+    image: jamespfennell/transiter:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      TRANSITER_DB_HOST: postgres
+      TRANSITER_DB_USER: transiter
+      TRANSITER_DB_PASSWORD: transiter
+      TRANSITER_DB_NAME: transiter
+    command: ["server"]
+
+volumes:
+  postgres_data:

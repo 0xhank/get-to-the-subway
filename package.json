@@ -1,0 +1,23 @@
+{
+  "name": "live-subway",
+  "version": "1.0.0",
+  "description": "Real-time NYC subway train visualization",
+  "type": "module",
+  "scripts": {
+    "dev": "run-pty % pnpm --filter frontend dev % pnpm --filter backend dev",
+    "build": "pnpm -r build"
+  },
+  "keywords": [
+    "subway",
+    "nyc",
+    "mta",
+    "mapbox",
+    "real-time"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.17.0",
+  "devDependencies": {
+    "run-pty": "^5.0.0"
+  }
+}
