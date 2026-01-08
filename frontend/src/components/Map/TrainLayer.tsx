@@ -3,6 +3,7 @@ import { Source, Layer, useMap } from "react-map-gl/maplibre";
 import type { CircleLayerSpecification, SymbolLayerSpecification } from "maplibre-gl";
 import { useInterpolatedTrains, type InterpolatedTrain } from "@/hooks/useInterpolatedTrains";
 import { getLineColor } from "@/lib/mta-colors";
+import { useStopStore } from "@/store/stop-store";
 
 /**
  * Hook to load the arrow icon into MapLibre.
@@ -90,12 +91,21 @@ const TRAIL_SEGMENTS = [
 ];
 
 // Convert trains to GeoJSON FeatureCollection (includes trail points)
-function trainsToGeoJSON(trains: InterpolatedTrain[]): GeoJSON.FeatureCollection {
+function trainsToGeoJSON(
+  trains: InterpolatedTrain[],
+  highlightedVehicleIds: Set<string>
+): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
 
   for (const train of trains) {
     const color = getLineColor(train.line);
     const bearing = train.bearing ?? 0;
+    const isHighlighted = highlightedVehicleIds.has(train.id);
+
+    // Scale and opacity for highlighted vs normal trains
+    const trainScale = isHighlighted ? train.scale * 1.2 : train.scale;
+    const trainOpacity = isHighlighted ? 1.0 : 0.85;
+    const trailOpacityMultiplier = isHighlighted ? 1.3 : 1.0;
 
     // Add trail segments (rendered first, so they appear behind)
     if (train.hasBearing) {
@@ -117,9 +127,10 @@ function trainsToGeoJSON(trains: InterpolatedTrain[]): GeoJSON.FeatureCollection
             id: train.id,
             color,
             bearing,
-            opacity: segment.opacity,
+            opacity: Math.min(1, segment.opacity * trailOpacityMultiplier),
             isTrail: true,
-            scale: train.scale,
+            scale: trainScale,
+            isHighlighted,
           },
         });
       }
@@ -140,9 +151,11 @@ function trainsToGeoJSON(trains: InterpolatedTrain[]): GeoJSON.FeatureCollection
         status: train.status,
         color,
         bearing,
-        scale: train.scale,
+        scale: trainScale,
+        opacity: trainOpacity,
         hasBearing: train.hasBearing,
         isTrail: false,
+        isHighlighted,
       },
     });
   }
@@ -205,7 +218,7 @@ const arrowLayer: SymbolLayerSpecification = {
     "icon-color": ["get", "color"],
     "icon-halo-color": "#1a1a1a",
     "icon-halo-width": 1,
-    "icon-opacity": 1,
+    "icon-opacity": ["get", "opacity"],
   },
 };
 
@@ -225,7 +238,7 @@ const fallbackCircleLayer: CircleLayerSpecification = {
       18, ["*", 8, ["get", "scale"]],
     ],
     "circle-color": ["get", "color"],
-    "circle-opacity": 1,
+    "circle-opacity": ["get", "opacity"],
     "circle-stroke-width": 1,
     "circle-stroke-color": "#1a1a1a",
   },
@@ -233,9 +246,27 @@ const fallbackCircleLayer: CircleLayerSpecification = {
 
 export function TrainLayer() {
   const trains = useInterpolatedTrains();
+  const stopData = useStopStore((state) => state.stopData);
   useArrowIcon(); // Load icon but don't block rendering
 
-  const geojson = useMemo(() => trainsToGeoJSON(trains), [trains]);
+  // Build set of highlighted vehicle IDs from stop arrivals
+  const highlightedVehicleIds = useMemo(() => {
+    if (!stopData) return new Set<string>();
+
+    const ids = new Set<string>();
+    for (const arrival of stopData.stop.northArrivals) {
+      ids.add(arrival.vehicleId);
+    }
+    for (const arrival of stopData.stop.southArrivals) {
+      ids.add(arrival.vehicleId);
+    }
+    return ids;
+  }, [stopData]);
+
+  const geojson = useMemo(
+    () => trainsToGeoJSON(trains, highlightedVehicleIds),
+    [trains, highlightedVehicleIds]
+  );
 
   // Always render all layers - fallback circle layer will only show for trains without bearing
   return (

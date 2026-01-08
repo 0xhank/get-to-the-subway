@@ -4,6 +4,7 @@ import cors from "cors";
 import { createStreamRouter, broadcastTrains, startHeartbeat } from "./routes/stream.js";
 import { createTrainsRouter } from "./routes/trains.js";
 import { createStatusRouter } from "./routes/status.js";
+import { createStopsRouter } from "./routes/stops.js";
 import { startPolling, setOnDataChanged } from "./transiter/poller.js";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use(createStreamRouter());
 app.use(createTrainsRouter());
 app.use(createStatusRouter());
+app.use(createStopsRouter());
 
 // Wire up data change callback to broadcast SSE
 setOnDataChanged(broadcastTrains);

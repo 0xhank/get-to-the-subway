@@ -33,3 +33,24 @@ export interface TrainsResponse {
   feedStatuses: FeedStatus[];
   timestamp: number;
 }
+
+export interface StopArrival {
+  routeId: string;
+  headsign: string;
+  direction: "N" | "S";
+  arrivalTime: number; // Unix timestamp in seconds
+  vehicleId: string;
+}
+
+export interface StopInfo {
+  id: string;
+  name: string;
+  routes: string[];
+  northArrivals: StopArrival[];
+  southArrivals: StopArrival[];
+}
+
+export interface StopArrivalsResponse {
+  stop: StopInfo;
+  timestamp: number;
+}
