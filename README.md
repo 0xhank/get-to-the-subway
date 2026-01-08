@@ -111,6 +111,39 @@ Then set `TRANSITER_URL=http://localhost:8080` in `backend/.env`.
 | `N` | Toggle Nearby panel |
 | `Esc` | Close panels/dialogs |
 
+## Deployment
+
+### Backend (Railway)
+
+The backend is configured for Railway deployment with Docker:
+
+```bash
+# Test the Docker build locally
+docker build -f backend/Dockerfile -t live-subway-backend .
+
+# Run locally
+docker run -p 3001:3001 \
+  -e TRANSITER_URL=https://demo.transiter.dev \
+  -e CORS_ORIGIN=https://your-frontend.vercel.app \
+  live-subway-backend
+```
+
+To deploy to Railway:
+1. Connect your GitHub repo to Railway
+2. Set the root directory to `/` (monorepo root)
+3. Railway will auto-detect the Dockerfile at `backend/Dockerfile`
+4. Set environment variables:
+   - `TRANSITER_URL` - Transiter API URL (e.g., `https://demo.transiter.dev`)
+   - `CORS_ORIGIN` - Your frontend URL
+   - `PORT` - Railway sets this automatically
+
+### Frontend (Vercel)
+
+1. Connect your GitHub repo to Vercel
+2. Set the root directory to `frontend`
+3. Set environment variable:
+   - `VITE_API_URL` - Your Railway backend URL
+
 ## Data Limitations
 
 MTA doesn't provide real-time GPS coordinates for trains - only stop IDs and arrival times. Trains appear at station locations and interpolate between them.

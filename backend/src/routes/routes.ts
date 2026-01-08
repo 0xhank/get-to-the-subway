@@ -15,9 +15,9 @@ let routesData: object | null = null;
 function loadRoutesData(): object {
   if (!routesData) {
     const fileContent = readFileSync(routesPath, "utf-8");
-    routesData = JSON.parse(fileContent);
+    routesData = JSON.parse(fileContent) as object;
   }
-  return routesData;
+  return routesData as object;
 }
 
 export function createRoutesRouter(): Router {
