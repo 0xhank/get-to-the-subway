@@ -1,8 +1,12 @@
 // Transiter API client
 // Fetches vehicle and stop data from Transiter
 
+import { readFile, writeFile } from "fs/promises";
+import { join } from "path";
+
 const TRANSITER_URL = process.env.TRANSITER_URL || "https://demo.transiter.dev";
 const SYSTEM_ID = "us-ny-subway";
+const CACHE_FILE = join(process.cwd(), "data", "stop-cache.json");
 
 export interface TransiterVehicle {
   id: string;
@@ -130,8 +134,51 @@ interface StopsResponse {
   nextId?: string;
 }
 
+// Load stop cache from file
+async function loadStopCacheFromFile(): Promise<boolean> {
+  try {
+    const data = await readFile(CACHE_FILE, "utf-8");
+    const cached = JSON.parse(data) as {
+      version?: number;
+      stops?: Array<{ id: string; lat: number; lon: number }>;
+    };
+
+    // Validate and load into stopCache map
+    if (cached.version === 1 && Array.isArray(cached.stops)) {
+      for (const { id, lat, lon } of cached.stops) {
+        stopCache.set(id, { lat, lon });
+      }
+      console.log(`Loaded ${cached.stops.length} stops from cache file`);
+      return true;
+    }
+  } catch {
+    // Cache miss is fine, will fetch from API
+  }
+  return false;
+}
+
+// Save stop cache to file
+async function saveStopCacheToFile(): Promise<void> {
+  try {
+    const stops = Array.from(stopCache.entries()).map(([id, coords]) => ({
+      id,
+      lat: coords.lat,
+      lon: coords.lon,
+    }));
+
+    await writeFile(CACHE_FILE, JSON.stringify({ version: 1, stops }, null, 2));
+    console.log(`Saved ${stops.length} stops to cache file`);
+  } catch (error) {
+    console.error("Failed to save stop cache:", error);
+  }
+}
+
 // Preload all stop coordinates
 export async function preloadStopCoordinates(): Promise<void> {
+  // Try loading from cache file first
+  const loaded = await loadStopCacheFromFile();
+  if (loaded) return;
+
   console.log("Preloading stop coordinates from Transiter...");
 
   try {
@@ -161,6 +208,9 @@ export async function preloadStopCoordinates(): Promise<void> {
     } while (nextId);
 
     console.log(`Loaded ${totalStops} stop coordinates`);
+
+    // Save to file for future loads
+    await saveStopCacheToFile();
   } catch (error) {
     console.error("Failed to preload stops:", error);
   }
@@ -184,7 +234,7 @@ export async function checkTransiterHealth(): Promise<boolean> {
   try {
     const response = await fetch(
       `${TRANSITER_URL}/systems/${SYSTEM_ID}`,
-      { signal: AbortSignal.timeout(5000) }
+      { signal: AbortSignal.timeout(2000) }
     );
     if (!response.ok) return false;
     const data = (await response.json()) as { status?: string };
@@ -247,8 +297,8 @@ export async function fetchTripsForVehicles(
     }
   }
 
-  // Fetch in parallel batches of 50 to avoid overwhelming the API
-  const BATCH_SIZE = 50;
+  // Fetch in parallel batches of 100 to avoid overwhelming the API
+  const BATCH_SIZE = 100;
   for (let i = 0; i < tripRequests.length; i += BATCH_SIZE) {
     const batch = tripRequests.slice(i, i + BATCH_SIZE);
 

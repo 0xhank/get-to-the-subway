@@ -68,6 +68,18 @@ export function stopHeartbeat(): void {
 export function createStreamRouter(): Router {
   const router = createRouter();
 
+  // Cached trains endpoint - returns immediately without waiting for SSE
+  router.get("/api/trains/cached", (req: Request, res: Response) => {
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-store"); // Don't cache stale data
+    res.json({
+      trains: getTrains(),
+      feedStatuses: getFeedStatuses(),
+      timestamp: Date.now(),
+    });
+    console.log(`Cached trains request: ${getTrains().length} trains`);
+  });
+
   // SSE endpoint
   router.get("/api/trains/stream", (req: Request, res: Response) => {
     // Set SSE headers

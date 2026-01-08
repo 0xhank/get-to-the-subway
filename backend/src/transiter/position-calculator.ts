@@ -8,6 +8,30 @@ export interface PositionData {
   longitude: number;
   prevStop?: StopTiming;
   nextStop?: StopTiming;
+  bearing?: number;
+}
+
+/**
+ * Calculate bearing from point A to point B using haversine formula.
+ * Returns degrees where 0 = North, 90 = East, 180 = South, 270 = West.
+ */
+function calculateBearing(
+  fromLat: number,
+  fromLon: number,
+  toLat: number,
+  toLon: number
+): number {
+  const lat1 = (fromLat * Math.PI) / 180;
+  const lat2 = (toLat * Math.PI) / 180;
+  const dLon = ((toLon - fromLon) * Math.PI) / 180;
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+  const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+  return (bearing + 360) % 360;
 }
 
 /**
@@ -52,8 +76,36 @@ export function calculateTrainPosition(
     return null;
   }
 
-  // If stopped at a station or no trip data, return static position
-  if (vehicle.currentStatus === "STOPPED_AT" || !tripData) {
+  // If stopped at a station, calculate bearing to next stop if available
+  if (vehicle.currentStatus === "STOPPED_AT") {
+    if (tripData) {
+      const currentMatch = findStopInTrip(tripData.stopTimes, vehicle.stop.id);
+      if (currentMatch && currentMatch.index < tripData.stopTimes.length - 1) {
+        const nextStopTime = tripData.stopTimes[currentMatch.index + 1];
+        const nextCoords = getCachedStopCoordinates(nextStopTime.stop.id);
+        if (nextCoords) {
+          const bearing = calculateBearing(
+            currentStopCoords.lat,
+            currentStopCoords.lon,
+            nextCoords.lat,
+            nextCoords.lon
+          );
+          return {
+            latitude: currentStopCoords.lat,
+            longitude: currentStopCoords.lon,
+            bearing,
+          };
+        }
+      }
+    }
+    return {
+      latitude: currentStopCoords.lat,
+      longitude: currentStopCoords.lon,
+    };
+  }
+
+  // No trip data - return static position without bearing
+  if (!tripData) {
     return {
       latitude: currentStopCoords.lat,
       longitude: currentStopCoords.lon,
@@ -129,11 +181,23 @@ export function calculateTrainPosition(
       const elapsed = now - prevDeparture;
       const progress = Math.max(0, Math.min(1, elapsed / totalTime));
 
+      const currentLat = prevCoords.lat + (currentStopCoords.lat - prevCoords.lat) * progress;
+      const currentLon = prevCoords.lon + (currentStopCoords.lon - prevCoords.lon) * progress;
+
+      // Calculate bearing from current interpolated position to next stop
+      const bearing = calculateBearing(
+        currentLat,
+        currentLon,
+        currentStopCoords.lat,
+        currentStopCoords.lon
+      );
+
       return {
-        latitude: prevCoords.lat + (currentStopCoords.lat - prevCoords.lat) * progress,
-        longitude: prevCoords.lon + (currentStopCoords.lon - prevCoords.lon) * progress,
+        latitude: currentLat,
+        longitude: currentLon,
         prevStop,
         nextStop,
+        bearing,
       };
     }
   }

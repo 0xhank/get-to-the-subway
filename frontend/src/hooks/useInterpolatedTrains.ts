@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useTrainStore } from "@/store/train-store";
 import type { Train } from "@live-subway/shared";
 
-// Animation duration for smooth transitions when data changes
-const TRANSITION_DURATION_MS = 800;
+// Animation durations
+const POSITION_TRANSITION_DURATION_MS = 300;
+const BEARING_TRANSITION_DURATION_MS = 300;
 
 // Linear interpolation
 function lerp(start: number, end: number, t: number): number {
@@ -20,25 +21,74 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+/**
+ * Interpolate bearing taking the shortest rotational path.
+ * Handles wraparound (e.g., 350 -> 10 goes through 0, not 180).
+ */
+function interpolateBearing(
+  fromBearing: number,
+  toBearing: number,
+  progress: number
+): number {
+  let diff = toBearing - fromBearing;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+
+  const easedProgress = easeOutCubic(progress);
+  return (fromBearing + diff * easedProgress + 360) % 360;
+}
+
+/**
+ * Calculate pulse scale for stopped trains.
+ * Returns scale factor between 1.0 and 1.15.
+ */
+function calculatePulseScale(now: number, stoppedSince: number): number {
+  const elapsed = now - stoppedSince;
+  const period = 1500; // 1.5 seconds
+  const phase = (elapsed % period) / period;
+
+  // Sinusoidal: smooth 0 -> 1 -> 0 over the period
+  const pulse = (Math.sin(phase * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+
+  return 1.0 + pulse * 0.15;
+}
+
+export interface InterpolatedTrain extends Omit<Train, 'bearing'> {
+  bearing: number | null;
+  scale: number;
+  hasBearing: boolean;
+}
+
 interface TrainAnimationState {
   // Position we're transitioning FROM (when data changes)
   fromLat: number;
   fromLon: number;
-  // When the transition started
+  // When the position transition started
   transitionStart: number;
   // The segment we're tracking (to detect changes)
   prevStopId?: string;
   nextStopId?: string;
+  // Last rendered position (for next transition)
+  lastRenderedLat?: number;
+  lastRenderedLon?: number;
+  // Bearing animation state
+  fromBearing?: number;
+  bearingTransitionStart: number;
+  lastRenderedBearing?: number;
+  // Pulse animation (for stopped trains)
+  stoppedSince?: number;
 }
 
 /**
  * Calculates real-time train positions with smooth transitions.
  * - Uses timing data for continuous movement between stations
  * - Smoothly animates when trains jump to new segments
+ * - Interpolates bearing changes over 500ms
+ * - Pulses stopped trains with gentle scale animation
  */
-export function useInterpolatedTrains(): Train[] {
+export function useInterpolatedTrains(): InterpolatedTrain[] {
   const trains = useTrainStore((state) => state.trains);
-  const [interpolatedTrains, setInterpolatedTrains] = useState<Train[]>([]);
+  const [interpolatedTrains, setInterpolatedTrains] = useState<InterpolatedTrain[]>([]);
 
   // Track animation state for each train
   const animationStates = useRef<Map<string, TrainAnimationState>>(new Map());
@@ -70,7 +120,7 @@ export function useInterpolatedTrains(): Train[] {
   const calculatePositions = useCallback(() => {
     const now = Date.now();
 
-    return trains.map((train) => {
+    return trains.map((train): InterpolatedTrain => {
       const target = getTargetPosition(train);
       let state = animationStates.current.get(train.id);
 
@@ -86,9 +136,10 @@ export function useInterpolatedTrains(): Train[] {
         state = {
           fromLat: target.lat,
           fromLon: target.lon,
-          transitionStart: 0, // No transition
+          transitionStart: 0,
           prevStopId: train.prevStop?.stopId,
           nextStopId: train.nextStop?.stopId,
+          bearingTransitionStart: 0,
         };
         animationStates.current.set(train.id, state);
       } else if (segmentChanged) {
@@ -104,10 +155,10 @@ export function useInterpolatedTrains(): Train[] {
       let finalLat = target.lat;
       let finalLon = target.lon;
 
-      // If in transition, blend from old position to new target
+      // If in position transition, blend from old position to new target
       if (state.transitionStart > 0) {
         const transitionElapsed = now - state.transitionStart;
-        const transitionProgress = clamp01(transitionElapsed / TRANSITION_DURATION_MS);
+        const transitionProgress = clamp01(transitionElapsed / POSITION_TRANSITION_DURATION_MS);
 
         if (transitionProgress < 1) {
           const easedProgress = easeOutCubic(transitionProgress);
@@ -120,13 +171,57 @@ export function useInterpolatedTrains(): Train[] {
       }
 
       // Store last rendered position for next transition
-      (state as TrainAnimationState & { lastRenderedLat?: number; lastRenderedLon?: number }).lastRenderedLat = finalLat;
-      (state as TrainAnimationState & { lastRenderedLat?: number; lastRenderedLon?: number }).lastRenderedLon = finalLon;
+      state.lastRenderedLat = finalLat;
+      state.lastRenderedLon = finalLon;
+
+      // Handle bearing interpolation
+      let finalBearing: number | null = train.bearing ?? null;
+      if (finalBearing !== null) {
+        // Check if bearing changed significantly (threshold to avoid micro-transitions)
+        const bearingChanged =
+          state.lastRenderedBearing !== undefined &&
+          Math.abs(state.lastRenderedBearing - finalBearing) > 1;
+
+        if (bearingChanged && state.bearingTransitionStart === 0) {
+          // Start new bearing transition
+          state.fromBearing = state.lastRenderedBearing;
+          state.bearingTransitionStart = now;
+        }
+
+        // Interpolate if in transition
+        if (state.bearingTransitionStart > 0 && state.fromBearing !== undefined) {
+          const bearingElapsed = now - state.bearingTransitionStart;
+          const bearingProgress = clamp01(bearingElapsed / BEARING_TRANSITION_DURATION_MS);
+
+          if (bearingProgress < 1) {
+            finalBearing = interpolateBearing(state.fromBearing, finalBearing, bearingProgress);
+          } else {
+            // Transition complete
+            state.bearingTransitionStart = 0;
+          }
+        }
+
+        state.lastRenderedBearing = finalBearing;
+      }
+
+      // Handle pulse scale for stopped trains
+      let scale = 1.0;
+      if (train.status === "AT_STOP") {
+        if (!state.stoppedSince) {
+          state.stoppedSince = now;
+        }
+        scale = calculatePulseScale(now, state.stoppedSince);
+      } else {
+        state.stoppedSince = undefined;
+      }
 
       return {
         ...train,
         latitude: finalLat,
         longitude: finalLon,
+        bearing: finalBearing,
+        scale,
+        hasBearing: finalBearing !== null,
       };
     });
   }, [trains, getTargetPosition]);
@@ -147,6 +242,9 @@ export function useInterpolatedTrains(): Train[] {
       setInterpolatedTrains([]);
       return;
     }
+
+    // Calculate immediately for initial render (critical for cached trains)
+    setInterpolatedTrains(calculatePositions());
 
     let animationId: number;
 

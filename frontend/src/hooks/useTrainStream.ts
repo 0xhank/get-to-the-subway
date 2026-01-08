@@ -27,6 +27,27 @@ export function useTrainStream(): void {
   const setConnectionState = useTrainStore((state) => state.setConnectionState);
 
   useEffect(() => {
+    // Fetch cached trains after a small delay to allow map to initialize
+    const fetchCachedTrains = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/trains/cached`);
+        if (response.ok) {
+          const data = (await response.json()) as {
+            trains: Train[];
+            feedStatuses: FeedStatus[];
+          };
+          console.log(`Loaded ${data.trains.length} cached trains`);
+          setTrains(data.trains, data.feedStatuses);
+        }
+      } catch (error) {
+        console.error("Failed to fetch cached trains:", error);
+        // This is not critical - SSE will provide data
+      }
+    };
+
+    // Delay to allow map to initialize
+    const cacheTimer = setTimeout(fetchCachedTrains, 200);
+
     function connect() {
       // Clean up any existing connection
       if (eventSourceRef.current) {
@@ -82,6 +103,7 @@ export function useTrainStream(): void {
 
     // Cleanup on unmount
     return () => {
+      clearTimeout(cacheTimer);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }

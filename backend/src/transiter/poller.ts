@@ -83,6 +83,7 @@ function vehicleToTrain(
     status,
     prevStop: positionData.prevStop,
     nextStop: positionData.nextStop,
+    bearing: positionData.bearing,
   };
 }
 
@@ -150,22 +151,29 @@ export async function startPolling(): Promise<void> {
     return;
   }
 
-  // Wait for Transiter to be ready
+  // Run health check and preload in parallel
   console.log("Waiting for Transiter to be ready...");
-  let attempts = 0;
-  while (attempts < 30) {
-    const healthy = await checkTransiterHealth();
-    if (healthy) {
-      console.log("Transiter is ready!");
-      break;
-    }
-    attempts++;
-    await new Promise((r) => setTimeout(r, 2000));
-    console.log(`  Attempt ${attempts}/30...`);
-  }
+  const [healthCheckResult] = await Promise.all([
+    (async () => {
+      let attempts = 0;
+      while (attempts < 30) {
+        const healthy = await checkTransiterHealth();
+        if (healthy) {
+          console.log("Transiter is ready!");
+          return true;
+        }
+        attempts++;
+        await new Promise((r) => setTimeout(r, 2000));
+        console.log(`  Attempt ${attempts}/30...`);
+      }
+      return false;
+    })(),
+    preloadStopCoordinates(), // Runs in parallel with health checks
+  ]);
 
-  // Preload stop coordinates
-  await preloadStopCoordinates();
+  if (!healthCheckResult) {
+    console.warn("Transiter failed to become healthy after 30 attempts, proceeding anyway");
+  }
 
   console.log(`Starting Transiter polling every ${POLL_INTERVAL_MS / 1000}s`);
 

@@ -17,6 +17,8 @@ export interface Train {
   // Timing data for frontend interpolation
   prevStop?: StopTiming;
   nextStop?: StopTiming;
+  // Bearing for directional arrow (degrees, 0 = North, 90 = East)
+  bearing?: number;
 }
 
 export interface FeedStatus {
