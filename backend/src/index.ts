@@ -10,7 +10,8 @@ import { startPolling, setOnDataChanged } from "./transiter/poller.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
+// Remove trailing slash from CORS origin to avoid mismatch
+const CORS_ORIGIN = (process.env.CORS_ORIGIN || "http://localhost:5173").replace(/\/$/, "");
 
 // Middleware
 app.use(cors({ origin: CORS_ORIGIN }));
