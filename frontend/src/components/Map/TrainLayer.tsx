@@ -4,6 +4,7 @@ import type { CircleLayerSpecification, SymbolLayerSpecification } from "maplibr
 import { useInterpolatedTrains, type InterpolatedTrain } from "@/hooks/useInterpolatedTrains";
 import { getLineColor } from "@/lib/mta-colors";
 import { useStopStore } from "@/store/stop-store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * Hook to load the arrow icon into MapLibre.
@@ -69,9 +70,12 @@ function useArrowIcon(): boolean {
 // Convert trains to GeoJSON FeatureCollection
 function trainsToGeoJSON(
   trains: InterpolatedTrain[],
-  highlightedVehicleIds: Set<string>
+  highlightedVehicleIds: Set<string>,
+  isMobile: boolean
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
+  // 20% larger on mobile for better touch targets
+  const mobileMultiplier = isMobile ? 1.2 : 1.0;
 
   for (const train of trains) {
     const color = getLineColor(train.line);
@@ -79,7 +83,7 @@ function trainsToGeoJSON(
     const isHighlighted = highlightedVehicleIds.has(train.id);
 
     // Scale and opacity for highlighted vs normal trains
-    const trainScale = (isHighlighted ? train.scale * 1.2 : train.scale) * 1.5;
+    const trainScale = (isHighlighted ? train.scale * 1.2 : train.scale) * 1.5 * mobileMultiplier;
     const trainOpacity = isHighlighted ? 1.0 : 0.85;
     features.push({
       type: "Feature",
@@ -164,6 +168,7 @@ const fallbackCircleLayer: CircleLayerSpecification = {
 export function TrainLayer() {
   const trains = useInterpolatedTrains();
   const stopData = useStopStore((state) => state.stopData);
+  const isMobile = useIsMobile();
   useArrowIcon(); // Load icon but don't block rendering
 
   // Build set of highlighted vehicle IDs from stop arrivals
@@ -181,8 +186,8 @@ export function TrainLayer() {
   }, [stopData]);
 
   const geojson = useMemo(
-    () => trainsToGeoJSON(trains, highlightedVehicleIds),
-    [trains, highlightedVehicleIds]
+    () => trainsToGeoJSON(trains, highlightedVehicleIds, isMobile),
+    [trains, highlightedVehicleIds, isMobile]
   );
 
   // Always render all layers - fallback circle layer will only show for trains without bearing

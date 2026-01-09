@@ -13,6 +13,7 @@ import { TrainLayer } from "@/components/Map/TrainLayer";
 import { StopLayer } from "@/components/Map/StopLayer";
 import { UserLocationLayer } from "@/components/Map/UserLocationLayer";
 import { StopPanel } from "@/components/StopPanel";
+import { ZoomControls } from "@/components/ZoomControls";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useFps } from "@/hooks/useFps";
 import { useTrainStream } from "@/hooks/useTrainStream";
@@ -21,6 +22,7 @@ import { useStopRouting } from "@/hooks/useStopRouting";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useStopStore } from "@/store/stop-store";
 import { useUIStore } from "@/store/ui-store";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const INITIAL_VIEW = {
   longitude: -73.985,
@@ -65,9 +67,12 @@ export default function App() {
   const { getCurrentPosition, position, error, isSupported } = useGeolocation();
   const userLocation = useUIStore((state) => state.userLocation);
   const setUserLocation = useUIStore((state) => state.setUserLocation);
+  const mapTarget = useUIStore((state) => state.mapTarget);
+  const setMapTarget = useUIStore((state) => state.setMapTarget);
 
   const selectStop = useStopStore((state) => state.selectStop);
   const clearSelection = useStopStore((state) => state.clearSelection);
+  const isMobile = useIsMobile();
 
   // Request geolocation on mount
   useEffect(() => {
@@ -102,21 +107,88 @@ export default function App() {
     }
   }, [error]);
 
-  const handleMapClick = (e: MapLayerMouseEvent) => {
+  // Handle map target (e.g., from search)
+  useEffect(() => {
+    if (mapTarget) {
+      setViewState({
+        latitude: mapTarget.latitude,
+        longitude: mapTarget.longitude,
+        zoom: 15,
+      });
+      setMapTarget(null);
+    }
+  }, [mapTarget, setMapTarget]);
+
+  const handleMapClick = async (e: MapLayerMouseEvent) => {
     // Check if a stop marker was clicked
     const features = (e.features as MapGeoJSONFeature[]) || [];
     const stopFeature = features.find((f) => f.layer.id === "stops-circle");
 
     if (stopFeature) {
-      // Stop marker clicked
-      selectStop(stopFeature.properties.id);
+      const stationId = stopFeature.properties.id;
+
+      if (isMobile) {
+        // On mobile: first tap shows tooltip, second tap opens panel
+        if (hover.stationId === stationId) {
+          // Same station tapped again - open panel
+          setHover({ stationId: null, stationName: "", trains: [], x: 0, y: 0 });
+          selectStop(stationId);
+        } else {
+          // New station tapped - show tooltip
+          const stationName = stopFeature.properties.name || "";
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL}/api/stops/${stationId}/arrivals`
+            );
+            const data = await response.json();
+            const trainSet = new Set<string>();
+            if (data.stop?.northArrivals) {
+              data.stop.northArrivals.forEach((arrival: { routeId: string }) => {
+                trainSet.add(arrival.routeId);
+              });
+            }
+            if (data.stop?.southArrivals) {
+              data.stop.southArrivals.forEach((arrival: { routeId: string }) => {
+                trainSet.add(arrival.routeId);
+              });
+            }
+            setHover({
+              stationId,
+              stationName,
+              trains: Array.from(trainSet).sort(),
+              x: e.originalEvent.clientX,
+              y: e.originalEvent.clientY,
+            });
+          } catch {
+            setHover({
+              stationId,
+              stationName,
+              trains: [],
+              x: e.originalEvent.clientX,
+              y: e.originalEvent.clientY,
+            });
+          }
+        }
+      } else {
+        // Desktop: click opens panel directly
+        selectStop(stationId);
+      }
     } else if (e.target === e.currentTarget || features.length === 0) {
-      // Map background clicked, close panel
-      clearSelection();
+      // Map background clicked
+      if (isMobile && hover.stationId) {
+        // On mobile: dismiss tooltip
+        setHover({ stationId: null, stationName: "", trains: [], x: 0, y: 0 });
+      } else {
+        // Desktop: close panel
+        clearSelection();
+      }
     }
   };
 
   const handleMouseMove = async (e: MapLayerMouseEvent) => {
+    // Disable hover tooltip on mobile (handled by tap instead)
+    if (isMobile) return;
+
     const features = (e.features as MapGeoJSONFeature[]) || [];
     const stopFeature = features.find((f) => f.layer.id === "stops-circle");
 
@@ -209,13 +281,19 @@ export default function App() {
           [NYC_BOUNDS.minLongitude, NYC_BOUNDS.minLatitude],
           [NYC_BOUNDS.maxLongitude, NYC_BOUNDS.maxLatitude],
         ]}
-        minZoom={9}
-        maxZoom={18}
+        minZoom={10}
+        maxZoom={16}
       >
         <RouteLineLayer />
         <TrainLayer />
         <StopLayer />
         <UserLocationLayer location={userLocation} />
+        {/* Zoom controls inside Map for useMap() access */}
+        {isMobile && (
+          <div className="absolute bottom-16 right-2 z-10">
+            <ZoomControls />
+          </div>
+        )}
       </Map>
 
       {hover.stationId && (

@@ -20,6 +20,9 @@ interface UIState {
   // User location
   userLocation: { latitude: number; longitude: number } | null;
 
+  // Map target for centering (e.g., from search)
+  mapTarget: { latitude: number; longitude: number } | null;
+
   // Actions
   setSearchOpen: (open: boolean) => void;
   setAboutOpen: (open: boolean) => void;
@@ -29,6 +32,7 @@ interface UIState {
   updateRideCount: (count: number) => void;
   setFps: (fps: number) => void;
   setUserLocation: (location: { latitude: number; longitude: number } | null) => void;
+  setMapTarget: (target: { latitude: number; longitude: number } | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -42,6 +46,7 @@ export const useUIStore = create<UIState>((set) => ({
   fps: 0,
   rideHistory: new Array(36).fill(0), // 3 hours at 5-min intervals
   userLocation: null,
+  mapTarget: null,
 
   // Actions
   setSearchOpen: (open) => set({ isSearchOpen: open }),
@@ -56,4 +61,5 @@ export const useUIStore = create<UIState>((set) => ({
     })),
   setFps: (fps) => set({ fps }),
   setUserLocation: (location) => set({ userLocation: location }),
+  setMapTarget: (target) => set({ mapTarget: target }),
 }));

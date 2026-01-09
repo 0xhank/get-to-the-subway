@@ -4,6 +4,13 @@ import { useNearbyArrivals, ProcessedTrain, NearbyStation } from "@/hooks/useNea
 import { useStopStore } from "@/store/stop-store";
 import { useUIStore } from "@/store/ui-store";
 import { getLineColor } from "@/lib/mta-colors";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 /**
  * Live countdown timer for a train departure
@@ -196,12 +203,69 @@ function StationCard({
 }
 
 /**
+ * Panel content shared between mobile drawer and desktop fixed panel
+ */
+function NearbyPanelContent({
+  stations,
+  isLoading,
+  error,
+  highlightedId,
+  onSelectStation,
+  onRetry,
+}: {
+  stations: NearbyStation[];
+  isLoading: boolean;
+  error: string | null;
+  highlightedId: string | null;
+  onSelectStation: (stopId: string) => void;
+  onRetry: (stopId: string) => void;
+}) {
+  return (
+    <div className="flex-1 overflow-y-auto">
+      {/* Error state */}
+      {error && (
+        <div className="px-4 py-3 text-red-400 text-xs border-b border-red-500/20 bg-red-500/10">
+          {error}
+        </div>
+      )}
+
+      {/* Loading state */}
+      {isLoading && stations.length === 0 && (
+        <div className="px-4 py-4 text-center text-gray-500 text-sm">
+          <div className="inline-block animate-spin mb-2">⟳</div>
+          <p>Loading nearby stations...</p>
+        </div>
+      )}
+
+      {/* No nearby stations */}
+      {!isLoading && stations.length === 0 && !error && (
+        <div className="px-4 py-4 text-center text-gray-500 text-sm">
+          No stations within 0.5 miles
+        </div>
+      )}
+
+      {/* Station list */}
+      {stations.map((station) => (
+        <StationCard
+          key={station.id}
+          station={station}
+          onSelectStation={onSelectStation}
+          onRetry={onRetry}
+          isHighlighted={station.id === highlightedId}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
  * Nearby Stations Panel - shows stations within 0.5 miles with departure timing
  */
 export function NearbyPanel() {
   const { stations, isLoading, error, retryStation } = useNearbyArrivals();
   const { nearbyPanelOpen, setNearbyPanelOpen } = useUIStore();
   const { selectStop } = useStopStore();
+  const isMobile = useIsMobile();
 
   // Track which station was previously first for highlight animation
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -228,8 +292,10 @@ export function NearbyPanel() {
     prevStationsRef.current = stations;
   }, [stations]);
 
-  // Handle keyboard shortcuts
+  // Handle keyboard shortcuts (desktop only)
   useEffect(() => {
+    if (isMobile) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && nearbyPanelOpen) {
         setNearbyPanelOpen(false);
@@ -238,15 +304,47 @@ export function NearbyPanel() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [nearbyPanelOpen, setNearbyPanelOpen]);
-
-  if (!nearbyPanelOpen) return null;
+  }, [nearbyPanelOpen, setNearbyPanelOpen, isMobile]);
 
   const handleSelectStation = (stopId: string) => {
     selectStop(stopId);
   };
 
-  // Desktop layout
+  // Mobile drawer layout
+  if (isMobile) {
+    return (
+      <Drawer
+        open={nearbyPanelOpen}
+        onOpenChange={setNearbyPanelOpen}
+        snapPoints={[0.4, 0.9]}
+        activeSnapPoint={nearbyPanelOpen ? 0.4 : undefined}
+      >
+        <DrawerContent className="max-h-[90vh] bg-black/95 border-cyan-500/20">
+          <DrawerHeader className="border-b border-cyan-500/20">
+            <DrawerTitle className="text-cyan-300">
+              Nearby Stations
+              {stations.length > 0 && (
+                <span className="ml-2 text-gray-500 font-normal">({stations.length})</span>
+              )}
+            </DrawerTitle>
+          </DrawerHeader>
+          <NearbyPanelContent
+            stations={stations}
+            isLoading={isLoading}
+            error={error}
+            highlightedId={highlightedId}
+            onSelectStation={handleSelectStation}
+            onRetry={retryStation}
+          />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  // Desktop: don't render if closed
+  if (!nearbyPanelOpen) return null;
+
+  // Desktop fixed panel layout
   return (
     <div className="fixed bottom-4 left-4 w-96 max-h-[60vh] rounded-lg overflow-hidden border border-cyan-500/20 bg-black/60 backdrop-blur-sm flex flex-col shadow-2xl">
       {/* Header */}
@@ -265,40 +363,14 @@ export function NearbyPanel() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Error state */}
-        {error && (
-          <div className="px-4 py-3 text-red-400 text-xs border-b border-red-500/20 bg-red-500/10">
-            {error}
-          </div>
-        )}
-
-        {/* Loading state */}
-        {isLoading && stations.length === 0 && (
-          <div className="px-4 py-4 text-center text-gray-500 text-sm">
-            <div className="inline-block animate-spin mb-2">⟳</div>
-            <p>Loading nearby stations...</p>
-          </div>
-        )}
-
-        {/* No nearby stations */}
-        {!isLoading && stations.length === 0 && !error && (
-          <div className="px-4 py-4 text-center text-gray-500 text-sm">
-            No stations within 0.5 miles
-          </div>
-        )}
-
-        {/* Station list */}
-        {stations.map((station) => (
-          <StationCard
-            key={station.id}
-            station={station}
-            onSelectStation={handleSelectStation}
-            onRetry={retryStation}
-            isHighlighted={station.id === highlightedId}
-          />
-        ))}
-      </div>
+      <NearbyPanelContent
+        stations={stations}
+        isLoading={isLoading}
+        error={error}
+        highlightedId={highlightedId}
+        onSelectStation={handleSelectStation}
+        onRetry={retryStation}
+      />
     </div>
   );
 }
