@@ -6,6 +6,7 @@ import { createTrainsRouter } from "./routes/trains.js";
 import { createStatusRouter } from "./routes/status.js";
 import { createStopsRouter } from "./routes/stops.js";
 import { createRoutesRouter } from "./routes/routes.js";
+import { createESP32Router } from "./routes/esp32.js";
 import { startPolling, setOnDataChanged } from "./transiter/poller.js";
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(createTrainsRouter());
 app.use(createStatusRouter());
 app.use(createStopsRouter());
 app.use(createRoutesRouter());
+app.use(createESP32Router());
 
 // Wire up data change callback to broadcast SSE
 setOnDataChanged(broadcastTrains);
