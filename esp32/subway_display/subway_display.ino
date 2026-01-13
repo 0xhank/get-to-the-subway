@@ -19,7 +19,7 @@ const char* WIFI_SSID = "TP-Link_8F9B";
 const char* WIFI_PASSWORD = "76199264";
 
 // Backend API URL
-const char* API_URL = "http://192.168.0.113:3001/api/esp32/departures";
+const char* API_URL = "http://get-to-the-subway-production.up.railway.app/api/esp32/departures";
 
 // Timing
 const unsigned long FETCH_INTERVAL = 10000;  // 10 seconds
